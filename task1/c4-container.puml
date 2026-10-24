@@ -1,0 +1,41 @@
+@startuml c4-container
+!include <C4/C4_Container>
+
+title NovaMarket - контейнерная диаграмма (C4, уровень C2)
+
+Person(buyer, "Покупатель", "Просматривает каталог, оформляет заказ, отслеживает доставку")
+Person(seller, "Продавец", "Получает уведомления о заказах, готовит товары к отправке")
+
+System_Boundary(nova, "NovaMarket") {
+    Container(catalog, "Catalog Service", "Микросервис", "Хранит товары, категории, цены, описания, отзывы. Отдаёт каталог, фильтрацию, карточку товара.")
+    Container(order, "Order Service", "Микросервис", "Управляет корзиной и заказами. Создаёт заказ, ведёт жизненный цикл и статусы.")
+    Container(inventory, "Inventory Service", "Микросервис", "Учёт остатков на складе. Резервирование и снятие резерва товаров.")
+    Container(payment, "Payment Service", "Микросервис", "Обработка оплаты, привязка карт, возврат средств.")
+    Container(delivery, "Delivery Service", "Микросервис", "Формирование заявок на доставку, взаимодействие с логистикой, трекинг.")
+    Container(notification, "Notification Service", "Микросервис", "Отправка уведомлений продавцу и покупателю о статусах заказа.")
+    ContainerQueue(broker, "Message Broker", "Брокер сообщений", "Передаёт события между сервисами.")
+}
+
+System_Ext(pay_ext, "Платёжная система", "Внешний сервис обработки платежей")
+System_Ext(logistics_ext, "Логистическая служба", "Внешний сервис доставки")
+
+Rel(buyer, catalog, "Просматривает каталог, фильтрует товары")
+Rel(buyer, order, "Управляет корзиной, оформляет заказ, отслеживает статус")
+Rel(seller, order, "Просматривает заказы")
+Rel(notification, seller, "Уведомляет о новых заказах")
+Rel(notification, buyer, "Уведомляет о статусе заказа")
+
+Rel(order, broker, "OrderCreated\nOrderConfirmed\nOrderCancelled")
+Rel(broker, inventory, "OrderCreated")
+Rel(inventory, broker, "InventoryReserved\nInventoryReservationFailed\nInventoryReleased")
+Rel(broker, payment, "InventoryReserved\nDeliveryRequestFailed")
+Rel(payment, broker, "PaymentSucceeded\nPaymentFailed\nPaymentRefunded")
+Rel(broker, delivery, "PaymentSucceeded")
+Rel(delivery, broker, "DeliveryRequested\nDeliveryRequestFailed")
+Rel(broker, order, "InventoryReservationFailed\nPaymentFailed\nPaymentSucceeded\nDeliveryRequested\nDeliveryRequestFailed\nInventoryReleased\nPaymentRefunded")
+Rel(broker, notification, "OrderCreated\nOrderConfirmed\nOrderCancelled\nDeliveryRequested")
+
+Rel(payment, pay_ext, "Списание и возврат средств")
+Rel(delivery, logistics_ext, "Создание заявки, получение трек-номера")
+
+@enduml
