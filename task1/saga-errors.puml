@@ -1,0 +1,104 @@
+@startuml saga-errors
+title Saga оформления заказа - ошибочные сценарии
+
+participant "Order Service" as order
+participant "Message Broker" as broker
+participant "Inventory Service" as inventory
+participant "Payment Service" as payment
+participant "Delivery Service" as delivery
+participant "Notification Service" as notification
+
+order -> broker : OrderCreated
+broker -> inventory : OrderCreated
+broker -> notification : OrderCreated
+
+alt Резервирование не удалось
+
+    activate inventory
+    inventory -> inventory : Проверка наличия
+    inventory -> broker : InventoryReservationFailed
+    deactivate inventory
+
+    broker -> order : InventoryReservationFailed
+
+    activate order
+    order -> broker : OrderCancelled
+    deactivate order
+
+    broker -> notification : OrderCancelled
+
+else Оплата не удалась
+
+    activate inventory
+    inventory -> inventory : Проверка наличия\nи резервирование товаров
+    inventory -> broker : InventoryReserved
+    deactivate inventory
+
+    broker -> payment : InventoryReserved
+
+    activate payment
+    payment -> payment : Списание средств
+    payment -> broker : PaymentFailed
+    deactivate payment
+
+    broker -> inventory : PaymentFailed
+
+    activate inventory
+    inventory -> inventory : Снятие резерва
+    inventory -> broker : InventoryReleased
+    deactivate inventory
+
+    broker -> order : InventoryReleased
+
+    activate order
+    order -> broker : OrderCancelled
+    deactivate order
+
+    broker -> notification : OrderCancelled
+
+else Создание заявки на доставку не удалось
+
+    activate inventory
+    inventory -> inventory : Проверка наличия\nи резервирование товаров
+    inventory -> broker : InventoryReserved
+    deactivate inventory
+
+    broker -> payment : InventoryReserved
+
+    activate payment
+    payment -> payment : Списание средств
+    payment -> broker : PaymentSucceeded
+    deactivate payment
+
+    broker -> delivery : PaymentSucceeded
+
+    activate delivery
+    delivery -> delivery : Создание заявки\nна доставку
+    delivery -> broker : DeliveryRequestFailed
+    deactivate delivery
+
+    broker -> payment : DeliveryRequestFailed
+
+    activate payment
+    payment -> payment : Возврат средств
+    payment -> broker : PaymentRefunded
+    deactivate payment
+
+    broker -> inventory : PaymentRefunded
+
+    activate inventory
+    inventory -> inventory : Снятие резерва
+    inventory -> broker : InventoryReleased
+    deactivate inventory
+
+    broker -> order : InventoryReleased
+
+    activate order
+    order -> broker : OrderCancelled
+    deactivate order
+
+    broker -> notification : OrderCancelled
+
+end
+
+@enduml
